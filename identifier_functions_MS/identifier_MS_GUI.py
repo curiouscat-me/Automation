@@ -4,26 +4,26 @@ from datetime import datetime
 from modules.logger import data_logger
 from modules.formatting import *
 from modules.eofy import get_eofy
-from modules.new_entries import add_new_entries_fte
-from modules.employee_filtering_conditions import employee_filtering_condition_fte, employee_security_fte, shorten_filtering_condition_fte
+from modules.new_entries import add_new_entries_ms
+from modules.employee_filtering_conditions import employee_filtering_condition_ms, employee_security_ms, shorten_filtering_condition_ms
 
 """
     Global Parameters:
     current_df (DataFrame): The DataFrame containing the current month data from the static report.
     next_df (DataFrame): The DataFrame containing the next month data from the static report.
-    op_fte_df (DataFrame): The DataFrame containing the operational plan data.
+    op_ms_df (DataFrame): The DataFrame containing the operational plan data.
     file_date (tuple): A tuple containing the end date string and start date string in '%b-%y' format.
     Returns:
     DataFrame: Updated operational plan DataFrame with identified movements marked.
 """
 
-def identify_exits_fte(current_df, next_df, op_fte_df, file_date):
+def identify_exits_ms(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have exited the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the end date string from file_date to a datetime object.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the current month's DataFrame for Security and FTE employees.
     3. Merge the filtered current month data with next month's data to identify exits.
        - Exits are employees present in the current month but not in the next month.
@@ -37,20 +37,20 @@ def identify_exits_fte(current_df, next_df, op_fte_df, file_date):
     end_date_str, _ = file_date
     if not end_date_str:
         data_logger.error("Failed to extract date from Static Report")
-        return op_fte_df
+        return op_ms_df
     
     # Convert the date str back to datetime object to perform date operations
     try:
         file_date = datetime.strptime(end_date_str, '%b-%y').date()
     except ValueError as e:
         data_logger.error(f"Date conversion error for Exits: {e}")
-        return op_fte_df
+        return op_ms_df
 
     # Use the reusable function to filter for Security and FTE
-    current_security_fte = employee_security_fte(current_df)
+    current_security_ms = employee_security_ms(current_df)
 
     # Filter to find employees who are no longer in the static file and were in Security Domain
-    merged_df = pd.merge(current_security_fte, next_df[['Employee ID']], on='Employee ID', how='left', indicator=True)
+    merged_df = pd.merge(current_security_ms, next_df[['Employee ID']], on='Employee ID', how='left', indicator=True)
 
     # Filter for exits specially from Security who were FTE and not CWR
     exits = merged_df[
@@ -60,24 +60,24 @@ def identify_exits_fte(current_df, next_df, op_fte_df, file_date):
     if not exits.empty:
         data_logger.info(f"Processing Exits...")
         for index, row in exits.iterrows():
-            emp_indices = shorten_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = shorten_filtering_condition_ms(op_ms_df, row['Employee ID'])
             
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'End Date'] = file_date
-                    op_fte_df.at[emp_index, 'Role Status'] = "Exit"
-                    op_fte_df.at[emp_index, 'Modified'] = True
-                    data_logger.info(f"Exit updated: {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']})")
+                    op_ms_df.at[emp_index, 'End Date'] = file_date
+                    op_ms_df.at[emp_index, 'Role Status'] = "Exit"
+                    op_ms_df.at[emp_index, 'Modified'] = True
+                    data_logger.info(f"Exit updated: {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']})")
 
-    return op_fte_df
+    return op_ms_df
 
-def identify_new_joiners_fte(current_df, next_df, op_fte_df, file_date):
+def identify_new_joiners_ms(current_df, next_df, op_ms_df, file_date):
     """
     Identifies new joiners in the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the start date string from file_date to a datetime object.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the next month's DataFrame for Security and FTE employees.
     3. Identify new joiners not in the current month but in the next month's Security domain.
     4. Identify employees who were CWR in another domain and move to FTE and Security domain next month.
@@ -98,14 +98,14 @@ def identify_new_joiners_fte(current_df, next_df, op_fte_df, file_date):
         first_day_of_static_month = datetime.strptime(start_date_str, '%b-%y').date().strftime('%b-%y')
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
 
     # Use the reusable function to filter for Security and FTE
-    next_security_fte = employee_security_fte(next_df)
+    next_security_ms = employee_security_ms(next_df)
     
     # Condition 1: New joiners not in current data but in next month's Security domain
-    new_joiners_condition1 = next_security_fte[
-        (~next_security_fte['Employee ID'].isin(current_df['Employee ID']))] # Not in current month
+    new_joiners_condition1 = next_security_ms[
+        (~next_security_ms['Employee ID'].isin(current_df['Employee ID']))] # Not in current month
 
     # Sub-conditions for Condition 2:
     current_cwr_not_security = current_df[
@@ -113,8 +113,8 @@ def identify_new_joiners_fte(current_df, next_df, op_fte_df, file_date):
         (current_df['FTE Category'] == 'Non-FTE') # Is NOT FTE current month 
     ]
     # Condition 2: Used to be CWR in another domain, move to FTE and Security Domain next month
-    new_joiners_condition2 = next_security_fte[
-        (next_security_fte['Employee ID'].isin(current_cwr_not_security['Employee ID']))] # In the list that currently CWR and not in Security
+    new_joiners_condition2 = next_security_ms[
+        (next_security_ms['Employee ID'].isin(current_cwr_not_security['Employee ID']))] # In the list that currently CWR and not in Security
 
     # Combine results from both conditions
     new_joiners = pd.concat([new_joiners_condition1, new_joiners_condition2]) # .drop_duplicates()
@@ -124,16 +124,16 @@ def identify_new_joiners_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info(f"Processing New Joiners...")
         new_entries = []
         for index, row in new_joiners.iterrows():
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
 
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'Role Status'] = "New Hire"
-                    op_fte_df.at[emp_index, 'Modified'] = True
-                    data_logger.info(f"New Hire processed for {op_fte_df.at[emp_index,'FTE Name']} (Employee ID: {row['Employee ID']}) joining {row['Tech Area']}")
+                    op_ms_df.at[emp_index, 'Role Status'] = "New Hire"
+                    op_ms_df.at[emp_index, 'Modified'] = True
+                    data_logger.info(f"New Hire processed for {op_ms_df.at[emp_index,'FTE Name']} (Employee ID: {row['Employee ID']}) joining {row['Tech Area']}")
             else:
-                new_entry = pd.Series(CONFIG['COLUMN_VALUES_FTE'], index=CONFIG['OP_FTE_COLUMNS'])
-                for static_col, op_col in CONFIG['COLUMN_MAPPING_FTE'].items():
+                new_entry = pd.Series(CONFIG['COLUMN_VALUES_MS'], index=CONFIG['OP_MS_COLUMNS'])
+                for static_col, op_col in CONFIG['COLUMN_MAPPING_MS'].items():
                     col_name = f"{static_col}"
                     if col_name in row:
                         new_entry[op_col] = row[col_name]
@@ -159,17 +159,17 @@ def identify_new_joiners_fte(current_df, next_df, op_fte_df, file_date):
                 new_entries.append(new_entry)
                 data_logger.info(f"New Hire processed for {new_entry['FTE Name']} (Employee ID: {row['Employee ID']}) joining {row['Tech Area']}")
 
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df
 
-def identify_transfers_in_fte(current_df, next_df, op_fte_df, file_date):
+def identify_transfers_in_ms(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have transferred into the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the start date string from file_date to a datetime object.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the next month's DataFrame for Security and FTE employees.
     3. Merge the current month's DataFrame with the next month's filtered data on 'Employee ID'.
     4. Identify transfers into Security domain based on domain and resource type conditions.
@@ -188,10 +188,10 @@ def identify_transfers_in_fte(current_df, next_df, op_fte_df, file_date):
         first_day_of_static_month = datetime.strptime(start_date_str, '%b-%y').date().strftime('%b-%y')
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    next_security_fte = employee_security_fte(next_df)
+    next_security_fte = employee_security_ms(next_df)
     
     # Check for transfer in into Security Domain for existing FTE
     merged_df = pd.merge(current_df, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
@@ -208,24 +208,24 @@ def identify_transfers_in_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info(f"Processing Transfers In...")
         new_entries = []
         for index, row in transfers_in.iterrows():
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
             
             if not emp_indices.empty:
                 for emp_index in emp_indices:
                     # Check for existing entries in the Op Plan that match the criteria
-                    existing_entries = op_fte_df[
-                        (op_fte_df['Employee ID'] == row['Employee ID']) & 
-                        (op_fte_df['Domain'] == row['Domain_next']) &
-                        (op_fte_df['End Date'] == eofy)
+                    existing_entries = op_ms_df[
+                        (op_ms_df['Employee ID'] == row['Employee ID']) & 
+                        (op_ms_df['Domain'] == row['Domain_next']) &
+                        (op_ms_df['End Date'] == eofy)
                     ]
                     # If such entries exist, log and skip further processing for this entry
                     if not existing_entries.empty:
-                        data_logger.info(f"Transfer In existed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
+                        data_logger.info(f"Transfer In existed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
                         continue
 
-                    op_fte_df.at[emp_index, 'Role Status'] = "Transfer In"
-                    op_fte_df.at[emp_index, 'Modified'] = True
-                    data_logger.info(f"Transfer In processed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Domain_current']} to {row['Domain_next']}")
+                    op_ms_df.at[emp_index, 'Role Status'] = "Transfer In"
+                    op_ms_df.at[emp_index, 'Modified'] = True
+                    data_logger.info(f"Transfer In processed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Domain_current']} to {row['Domain_next']}")
             else:
                 new_entry = pd.Series(CONFIG['COLUMN_VALUES_FTE'], index=CONFIG['OP_FTE_COLUMNS'])
                 for static_col, op_col in CONFIG['COLUMN_MAPPING_FTE'].items():
@@ -254,16 +254,16 @@ def identify_transfers_in_fte(current_df, next_df, op_fte_df, file_date):
                 new_entries.append(new_entry)
                 data_logger.info(f"Transfer In processed for {new_entry['FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Domain_current']} to {row['Domain_next']}")
 
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df
 
-def identify_transfers_out_fte(current_df, next_df, op_fte_df, file_date):   
+def identify_transfers_out_fte(current_df, next_df, op_ms_df, file_date):   
     """
     Identifies employees who have transferred out of the Security domain and updates the operational plan DataFrame accordingly.
     Process:
     1. Extract and convert the end date string from file_date to a datetime object.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the current month's DataFrame for Security and FTE employees.
     3. Merge the current month's DataFrame with the next month's data on 'Employee ID'.
     4. Identify transfers out of Security domain based on domain and FTE category conditions.
@@ -277,17 +277,17 @@ def identify_transfers_out_fte(current_df, next_df, op_fte_df, file_date):
     end_date_str, _ = file_date
     if not file_date:
         data_logger.error("Failed to extract date from Static Report")
-        return op_fte_df
+        return op_ms_df
     
     # Convert the date str back to datetime object to perform date operations
     try:
         last_day_of_op_month = datetime.strptime(end_date_str, '%b-%y').date().strftime('%b-%y')
     except ValueError as e:
         data_logger.error(f"Date conversion error for Transfers Out: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
+    current_security_fte = employee_security_ms(current_df)
     
     # Merge current and next df to track changes
     merged_df = pd.merge(current_security_fte, next_df, on=['Employee ID'], suffixes=('_current', '_next'), how='left', indicator=True)
@@ -303,24 +303,24 @@ def identify_transfers_out_fte(current_df, next_df, op_fte_df, file_date):
     if not transfers_out.empty:
         data_logger.info(f"Processing Transfers Out...")
         for index, row in transfers_out.iterrows():
-            emp_indices = shorten_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = shorten_filtering_condition_ms(op_ms_df, row['Employee ID'])
             
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'End Date'] = last_day_of_op_month
-                    op_fte_df.at[emp_index, 'Role Status'] = "Transfer Out"
-                    op_fte_df.at[emp_index, 'Modified'] = True
-                    data_logger.info(f"Transfer out processed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Domain_current']} to {row['Domain_next']}")
+                    op_ms_df.at[emp_index, 'End Date'] = last_day_of_op_month
+                    op_ms_df.at[emp_index, 'Role Status'] = "Transfer Out"
+                    op_ms_df.at[emp_index, 'Modified'] = True
+                    data_logger.info(f"Transfer out processed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Domain_current']} to {row['Domain_next']}")
     
-    return op_fte_df
+    return op_ms_df
 
-def identify_grade_changes_fte(current_df, next_df, op_fte_df, file_date):
+def identify_grade_changes_fte(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have grade changes in the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the end date and start date strings from file_date to datetime objects.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the current and next month's DataFrames for Security and FTE employees.
     3. Merge the filtered DataFrames on 'Employee ID'.
     4. Identify grade changes based on resource type, tech area, and job grade conditions.
@@ -341,11 +341,11 @@ def identify_grade_changes_fte(current_df, next_df, op_fte_df, file_date):
         first_day_of_static_month = datetime.strptime(start_date_str, '%b-%y').date().strftime('%b-%y')
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
 
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
-    next_security_fte = employee_security_fte(next_df)
+    current_security_fte = employee_security_ms(current_df)
+    next_security_fte = employee_security_ms(next_df)
 
     merged_df = pd.merge(current_security_fte, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
 
@@ -361,29 +361,29 @@ def identify_grade_changes_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info(f"Processing Grade Changes...")
         new_entries = []
         for index, row in grade_changes.iterrows():
-            # Get indices of existing entries for the employee in op_fte_df
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            # Get indices of existing entries for the employee in op_ms_df
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
             
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    # Check if the grade change already exists in op_fte_df
-                    existing_entries = op_fte_df[
-                        (op_fte_df['Employee ID'] == row['Employee ID']) & 
-                        (op_fte_df['Job Grade'] == row['Job Grade_next']) &
-                        (op_fte_df['End Date'] == eofy)
+                    # Check if the grade change already exists in op_ms_df
+                    existing_entries = op_ms_df[
+                        (op_ms_df['Employee ID'] == row['Employee ID']) & 
+                        (op_ms_df['Job Grade'] == row['Job Grade_next']) &
+                        (op_ms_df['End Date'] == eofy)
                     ]
                     if not existing_entries.empty:
-                        data_logger.info(f"Grade Change existed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
+                        data_logger.info(f"Grade Change existed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
                         continue
                     
                     # Update the existing entry to mark it as not current
-                    op_fte_df.at[emp_index, 'Job Grade'] = row['Job Grade_current']
-                    op_fte_df.at[emp_index, 'End Date'] = last_day_of_op_month
-                    op_fte_df.at[emp_index, 'Role Status'] = "Not Current"
-                    op_fte_df.at[emp_index, 'Modified'] = True
+                    op_ms_df.at[emp_index, 'Job Grade'] = row['Job Grade_current']
+                    op_ms_df.at[emp_index, 'End Date'] = last_day_of_op_month
+                    op_ms_df.at[emp_index, 'Role Status'] = "Not Current"
+                    op_ms_df.at[emp_index, 'Modified'] = True
 
                     # Create a new entry with the new job grade based on the existing entry
-                    new_entry = op_fte_df.loc[emp_index].copy()
+                    new_entry = op_ms_df.loc[emp_index].copy()
                     new_entry['Resource Type'] = row['Resource Type_next']
                     new_entry['Job Grade'] = row['Job Grade_next']
                     new_entry['FTE based Country\n(drives FTE rates calc)'] = map_to_hub_FTE(row['Planning Unit Country_next'])
@@ -396,11 +396,11 @@ def identify_grade_changes_fte(current_df, next_df, op_fte_df, file_date):
                     new_entries.append(new_entry)
                     data_logger.info(f"Grade change processed for {new_entry['FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Job Grade_current']} to {row['Job Grade_next']}")
         
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df
 
-def identify_internal_mobility_fte(current_df, next_df, op_fte_df, file_date):
+def identify_internal_mobility_fte(current_df, next_df, op_ms_df, file_date):
     """
     Identify internal mobility for employees within the Security domain and update the operational FTE DataFrame accordingly.
     
@@ -425,11 +425,11 @@ def identify_internal_mobility_fte(current_df, next_df, op_fte_df, file_date):
         
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
-    next_security_fte = employee_security_fte(next_df)
+    current_security_fte = employee_security_ms(current_df)
+    next_security_fte = employee_security_ms(next_df)
 
     # Merge the filtered current month data with next month's data on Employee ID
     merged_df = pd.merge(current_security_fte, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
@@ -448,29 +448,29 @@ def identify_internal_mobility_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info('Processing Internal Mobility...')
         new_entries = []
         for index, row in internal_mobility.iterrows():
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
 
             if not emp_indices.empty:
                 processed_internal_mobility = False
                 for emp_index in emp_indices:
                     # Check if the change already exists
-                    existing_entries = op_fte_df[
-                        (op_fte_df['Employee ID'] == row['Employee ID']) & 
-                        (op_fte_df['Tech Area'] == row['Tech Area_next']) &
-                        (op_fte_df['End Date'] == eofy)
+                    existing_entries = op_ms_df[
+                        (op_ms_df['Employee ID'] == row['Employee ID']) & 
+                        (op_ms_df['Tech Area'] == row['Tech Area_next']) &
+                        (op_ms_df['End Date'] == eofy)
                     ]
                     if not existing_entries.empty:
-                        data_logger.info(f"Internal Mobility already exists for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
+                        data_logger.info(f"Internal Mobility already exists for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
                         processed_internal_mobility = True
                         break
 
                 if not processed_internal_mobility:
-                    op_fte_df.at[emp_index, 'Tech Area'] = format_tech_area(row['Tech Area_current'])
-                    op_fte_df.at[emp_index, 'End Date'] = last_day_of_op_month
-                    op_fte_df.at[emp_index, 'Role Status'] = "Not Current"
-                    op_fte_df.at[emp_index, 'Modified'] = True
+                    op_ms_df.at[emp_index, 'Tech Area'] = format_tech_area(row['Tech Area_current'])
+                    op_ms_df.at[emp_index, 'End Date'] = last_day_of_op_month
+                    op_ms_df.at[emp_index, 'Role Status'] = "Not Current"
+                    op_ms_df.at[emp_index, 'Modified'] = True
 
-                    new_entry = op_fte_df.loc[emp_index].copy()
+                    new_entry = op_ms_df.loc[emp_index].copy()
                     new_entry['Role Type'] = row['Role Type_next']
                     new_entry['Job Grade'] = row['Job Grade_next']
                     new_entry['Tech Area'] = format_tech_area(row['Tech Area_next'])
@@ -483,17 +483,17 @@ def identify_internal_mobility_fte(current_df, next_df, op_fte_df, file_date):
                     new_entries.append(new_entry)
                     data_logger.info(f"Internal Mobility processed for {new_entry['FTE Name']} (Employee ID: {row['Employee ID']}) to {row['Tech Area_next']}")
 
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df
 
-def indetify_conversions_within_fte(current_df, next_df, op_fte_df, file_date):
+def indetify_conversions_within_fte(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have converted within the FTE categories (e.g., from Fixed Term to Permanent) in the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the end date and start date strings from file_date to datetime objects.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the current and next month's DataFrames for Security and FTE employees.
     3. Merge the filtered DataFrames on 'Employee ID'.
     4. Identify conversions within FTE based on resource type conditions.
@@ -513,11 +513,11 @@ def indetify_conversions_within_fte(current_df, next_df, op_fte_df, file_date):
         first_day_of_static_month = datetime.strptime(start_date_str, '%b-%y').date().strftime('%b-%y')
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
-    next_security_fte = employee_security_fte(next_df)
+    current_security_fte = employee_security_ms(current_df)
+    next_security_fte = employee_security_ms(next_df)
 
     # Merge current and next df for comparison
     merged_df = pd.merge(current_security_fte, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
@@ -530,16 +530,16 @@ def indetify_conversions_within_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info(f"Processing Conversions within Security FTE...")
         new_entries = []
         for index, row in conversions_fixed_perm.iterrows():
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
 
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'Resource Type'] = row['Resource Type_current']
-                    op_fte_df.at[emp_index, 'End Date'] = last_day_of_op_month
-                    op_fte_df.at[emp_index, 'Role Status'] = f"Conversion from {row['Resource Type_current']} to {row['Resource Type_next']}"
-                    op_fte_df.at[emp_index, 'Modified'] = True
+                    op_ms_df.at[emp_index, 'Resource Type'] = row['Resource Type_current']
+                    op_ms_df.at[emp_index, 'End Date'] = last_day_of_op_month
+                    op_ms_df.at[emp_index, 'Role Status'] = f"Conversion from {row['Resource Type_current']} to {row['Resource Type_next']}"
+                    op_ms_df.at[emp_index, 'Modified'] = True
 
-                    new_entry = op_fte_df.loc[emp_index].copy()
+                    new_entry = op_ms_df.loc[emp_index].copy()
                     new_entry['Resource Type'] = row['Resource Type_next']
                     new_entry['Role Type'] = row['Role Type_next']
                     new_entry['Job Grade'] = row ['Job Grade_next']
@@ -550,7 +550,7 @@ def indetify_conversions_within_fte(current_df, next_df, op_fte_df, file_date):
                     new_entry['Modified'] = True
 
                     new_entries.append(new_entry)
-                    data_logger.info(f"Conversion processed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Resource Type_current']} to {row['Resource Type_next']}")
+                    data_logger.info(f"Conversion processed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Resource Type_current']} to {row['Resource Type_next']}")
 
             else:
                 new_entry = pd.Series(CONFIG['COLUMN_VALUES_FTE'], index=CONFIG['OP_FTE_COLUMNS'])
@@ -580,17 +580,17 @@ def indetify_conversions_within_fte(current_df, next_df, op_fte_df, file_date):
                 new_entries.append(new_entry)
                 data_logger.info(f"Conversion processed for {new_entry['FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Resource Type_current']} to {row['Resource Type_next']}")
     
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df
 
-def identify_conversions_cwr_to_fte(current_df, next_df, op_fte_df, file_date):
+def identify_conversions_cwr_to_fte(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have converted from CWR to FTE in the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the start date string from file_date to a datetime object.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the next month's DataFrame for Security and FTE employees.
     3. Merge the current month's DataFrame with the next month's filtered data on 'Employee ID'.
     4. Identify conversions from CWR to FTE based on domain and FTE category conditions.
@@ -610,10 +610,10 @@ def identify_conversions_cwr_to_fte(current_df, next_df, op_fte_df, file_date):
     
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    next_security_fte = employee_security_fte(next_df)
+    next_security_fte = employee_security_ms(next_df)
     
     # Merge current and next df for comparison
     merged_df = pd.merge(current_df, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
@@ -629,18 +629,18 @@ def identify_conversions_cwr_to_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info(f"Processing Conversions from CWR to FTE...")
         new_entries = []
         for index, row in conversions_cwr_fte.iterrows():
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
 
             if not emp_indices.empty:
                 for emp_index in emp_indices:
                     # Check if the change already exists
-                    existing_entries = op_fte_df[
-                        (op_fte_df['Employee ID'] == row['Employee ID']) & 
-                        (op_fte_df['Resource Type'] == row['Resource Type_next']) &
-                        (op_fte_df['End Date'] == eofy)
+                    existing_entries = op_ms_df[
+                        (op_ms_df['Employee ID'] == row['Employee ID']) & 
+                        (op_ms_df['Resource Type'] == row['Resource Type_next']) &
+                        (op_ms_df['End Date'] == eofy)
                     ]
                     if not existing_entries.empty:
-                        data_logger.info(f"Conversion already exists for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
+                        data_logger.info(f"Conversion already exists for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}). Skipping.")
                         continue
             else:
                 new_entry = pd.Series(CONFIG['COLUMN_VALUES_FTE'], index=CONFIG['OP_FTE_COLUMNS'])
@@ -670,17 +670,17 @@ def identify_conversions_cwr_to_fte(current_df, next_df, op_fte_df, file_date):
                 new_entries.append(new_entry)
                 data_logger.info(f"Conversion processed for {new_entry['FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Resource Type_current']} to {row['Resource Type_next']}")
     
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df
 
-def identify_conversions_fte_to_cwr(current_df, next_df, op_fte_df, file_date):
+def identify_conversions_fte_to_cwr(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have converted from FTE to CWR in the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the end date string from file_date to a datetime object.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the current month's DataFrame for Security and FTE employees.
     3. Merge the current month's DataFrame with the next month's data on 'Employee ID'.
     4. Identify conversions from FTE to CWR based on domain and FTE category conditions.
@@ -696,10 +696,10 @@ def identify_conversions_fte_to_cwr(current_df, next_df, op_fte_df, file_date):
         last_day_of_op_month = datetime.strptime(end_date_str, '%b-%y').date().strftime('%b-%y')
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
+    current_security_fte = employee_security_ms(current_df)
 
     # Merge current and next df for comparison
     merged_df = pd.merge(current_security_fte, next_df, on='Employee ID', suffixes=('_current', '_next'))
@@ -714,21 +714,21 @@ def identify_conversions_fte_to_cwr(current_df, next_df, op_fte_df, file_date):
     if not conversions_from_fte.empty:
         data_logger.info(f"Processing Conversions from FTE...")
         for index, row in conversions_from_fte.iterrows():
-            emp_indices = employee_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = employee_filtering_condition_ms(op_ms_df, row['Employee ID'])
             
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'Resource Type'] = row['Resource Type_current']
-                    op_fte_df.at[emp_index,'Employee ID'] = row['Employee ID']
-                    op_fte_df.at[emp_index, 'Job Grade'] = row['Job Grade_current']
-                    op_fte_df.at[emp_index, 'End Date'] = last_day_of_op_month
-                    op_fte_df.at[emp_index, 'Role Status'] = "Conversion from FTE"
-                    op_fte_df.at[emp_index, 'Modified'] = True
-                    data_logger.info(f"Conversion processed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Resource Type_current']} to {row['Resource Type_next']}")
+                    op_ms_df.at[emp_index, 'Resource Type'] = row['Resource Type_current']
+                    op_ms_df.at[emp_index,'Employee ID'] = row['Employee ID']
+                    op_ms_df.at[emp_index, 'Job Grade'] = row['Job Grade_current']
+                    op_ms_df.at[emp_index, 'End Date'] = last_day_of_op_month
+                    op_ms_df.at[emp_index, 'Role Status'] = "Conversion from FTE"
+                    op_ms_df.at[emp_index, 'Modified'] = True
+                    data_logger.info(f"Conversion processed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Resource Type_current']} to {row['Resource Type_next']}")
     
-    return op_fte_df
+    return op_ms_df
 
-def identify_line_manager_changes_fte(current_df, next_df, op_fte_df, file_date):
+def identify_line_manager_changes_fte(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have experienced a line manager change in the Security domain and updates the operational plan DataFrame accordingly.
     
@@ -744,8 +744,8 @@ def identify_line_manager_changes_fte(current_df, next_df, op_fte_df, file_date)
     6. Return the updated operational plan DataFrame.
     """
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
-    next_security_fte = employee_security_fte(next_df)
+    current_security_fte = employee_security_ms(current_df)
+    next_security_fte = employee_security_ms(next_df)
 
     merged_df = pd.merge(current_security_fte, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
     # Filter conditions
@@ -755,22 +755,22 @@ def identify_line_manager_changes_fte(current_df, next_df, op_fte_df, file_date)
     if not line_manager_changes.empty:
         data_logger.info('Processing Line Manager Changes...')
         for index, row in line_manager_changes.iterrows():
-            emp_indices = shorten_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = shorten_filtering_condition_ms(op_ms_df, row['Employee ID'])
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'Modified'] = True
-                    op_fte_df.at[emp_index, 'Line Manager'] = f"{row['Supervisor Legal First Name_next']} {row['Supervisor Legal Surname_next']}"
-                    data_logger.info(f"Line Manager Change processed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {int(row['Supervisor Employee ID_current'])} to {int(row['Supervisor Employee ID_next'])}")
+                    op_ms_df.at[emp_index, 'Modified'] = True
+                    op_ms_df.at[emp_index, 'Line Manager'] = f"{row['Supervisor Legal First Name_next']} {row['Supervisor Legal Surname_next']}"
+                    data_logger.info(f"Line Manager Change processed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {int(row['Supervisor Employee ID_current'])} to {int(row['Supervisor Employee ID_next'])}")
     
-    return op_fte_df
+    return op_ms_df
 
-def identify_location_changes_fte(current_df, next_df, op_fte_df, file_date):
+def identify_location_changes_fte(current_df, next_df, op_ms_df, file_date):
     """
     Identifies employees who have experienced a location change in the Security domain and updates the operational plan DataFrame accordingly.
     
     Process:
     1. Extract and convert the end date and start date strings from file_date to datetime objects.
-       - If date extraction or conversion fails, log an error and return the original op_fte_df.
+       - If date extraction or conversion fails, log an error and return the original op_ms_df.
     2. Filter the current and next month's DataFrames for Security and FTE employees.
     3. Merge the filtered DataFrames on 'Employee ID'.
     4. Identify location changes based on resource type and location conditions.
@@ -792,11 +792,11 @@ def identify_location_changes_fte(current_df, next_df, op_fte_df, file_date):
     
     except ValueError as e:
         data_logger.error(f"Date conversion error: {e}")
-        return op_fte_df
+        return op_ms_df
     
     # Filter for employees who are in Security and FTE in the current month
-    current_security_fte = employee_security_fte(current_df)
-    next_security_fte = employee_security_fte(next_df)
+    current_security_fte = employee_security_ms(current_df)
+    next_security_fte = employee_security_ms(next_df)
 
     # Merge the filtered current month data with next month's data on Employee ID
     merged_df = pd.merge(current_security_fte, next_security_fte, on='Employee ID', suffixes=('_current', '_next'))
@@ -812,17 +812,17 @@ def identify_location_changes_fte(current_df, next_df, op_fte_df, file_date):
         data_logger.info('Processing Location Changes...')
         new_entries = []
         for index, row in location_changes.iterrows():
-            emp_indices = shorten_filtering_condition_fte(op_fte_df, row['Employee ID'])
+            emp_indices = shorten_filtering_condition_ms(op_ms_df, row['Employee ID'])
             
             if not emp_indices.empty:
                 for emp_index in emp_indices:
-                    op_fte_df.at[emp_index, 'FTE based Country\n(drives FTE rates calc)'] = map_to_hub_FTE(row['Planning Unit Country_current'])
-                    op_fte_df.at[emp_index, 'Planning Unit Country'] = row['Planning Unit Country_current']
-                    op_fte_df.at[emp_index, 'End Date'] = last_day_of_op_month
-                    op_fte_df.at[emp_index, 'Role Status'] = "Not Current"
-                    op_fte_df.at[emp_index, 'Modified'] = True
+                    op_ms_df.at[emp_index, 'FTE based Country\n(drives FTE rates calc)'] = map_to_hub_FTE(row['Planning Unit Country_current'])
+                    op_ms_df.at[emp_index, 'Planning Unit Country'] = row['Planning Unit Country_current']
+                    op_ms_df.at[emp_index, 'End Date'] = last_day_of_op_month
+                    op_ms_df.at[emp_index, 'Role Status'] = "Not Current"
+                    op_ms_df.at[emp_index, 'Modified'] = True
 
-                    new_entry = op_fte_df.loc[emp_index].copy()
+                    new_entry = op_ms_df.loc[emp_index].copy()
                     new_entry['FTE based Country\n(drives FTE rates calc)'] = map_to_hub_FTE(row['Planning Unit Country_next'])
                     new_entry['Planning Unit Country'] = row['Planning Unit Country_next']
                     new_entry['Start Date'] = first_day_of_static_month
@@ -832,8 +832,8 @@ def identify_location_changes_fte(current_df, next_df, op_fte_df, file_date):
                     new_entry['Modified'] = True
 
                     new_entries.append(new_entry)
-                    data_logger.info(f"Location change processed for {op_fte_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Planning Unit Country_current']} to {row['Planning Unit Country_next']}")
+                    data_logger.info(f"Location change processed for {op_ms_df.at[emp_index, 'FTE Name']} (Employee ID: {row['Employee ID']}) from {row['Planning Unit Country_current']} to {row['Planning Unit Country_next']}")
         
-        op_fte_df = add_new_entries_fte(op_fte_df, new_entries)
+        op_ms_df = add_new_entries_ms(op_ms_df, new_entries)
 
-    return op_fte_df
+    return op_ms_df

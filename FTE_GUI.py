@@ -450,8 +450,8 @@ def process_fte(op_plan_path, static_report_path, output_directory, result):
 Provide the path to the file you want to run the script directly from the file.
 
 if __name__ == "__main__":
-    test_op_plan_path = "\\\\svrau570bsm00.oceania.corp.anz.com\\nguyea53$\\My Documents\\An\\VS Learning\\Practice\\New-Test files\\Copy Op SEC May.xlsx"
-    test_static_report_path = "\\\\svrau570bsm00.oceania.corp.anz.com\\nguyea53$\\My Documents\\An\VS Learning\\Practice\\New-Test files\\Copy of Static 240630.xlsx"
-    test_output_directory = "\\\\Svrau055csm00.oceania.corp.anz.com\\TEPSS BTMC\\SHARE\\App Support\\Support\\3. Teams\\Technology Business Operations\\4. Practice Management\\Automation Tool\\Test Folder"
+    test_op_plan_path = "My Documents\\An\\VS Learning\\Practice\\New-Test files\\Copy Op SEC May.xlsx"
+    test_static_report_path = "My Documents\\An\VS Learning\\Practice\\New-Test files\\Copy of Static 240630.xlsx"
+    test_output_directory = "SHARE\\App Support\\Support\\3. Teams\\Technology Business Operations\\4. Practice Management\\Automation Tool\\Test Folder"
     process_fte(test_op_plan_path, test_static_report_path, test_output_directory)
 """
