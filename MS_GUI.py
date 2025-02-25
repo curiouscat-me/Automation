@@ -415,9 +415,9 @@ def process_ms(op_plan_path, static_report_path, global_staff_path, output_direc
 Provide the path to the file you want to run the script directly from the file.
 
 # if __name__ == "__main__":
-#     test_op_plan_path = "\\\\svrau570bsm00.oceania.corp.anz.com\\nguyea53$\\My Documents\\An\\VS Learning\\Practice\\New-Test files\\Copy of Op - May.xlsx"
-#     test_static_report_path = "\\\\svrau570bsm00.oceania.corp.anz.com\\nguyea53$\\My Documents\\An\VS Learning\\Practice\\New-Test files\\Copy of Static 240630.xlsx"
-#     test_output_directory = "\\\\svrau570bsm00.oceania.corp.anz.com\\nguyea53$\My Documents\\An\\VS Learning\\Practice\\New-Test files"
-#     test_global_staff_list = "\\\\svrau570bsm00.oceania.corp.anz.com\\nguyea53$\My Documents\\An\\VS Learning\\Practice\\New-Test files\\Copy of Staff list - May.xlsx"
+#     test_op_plan_path = "My Documents\\An\\VS Learning\\Practice\\New-Test files\\Copy of Op - May.xlsx"
+#     test_static_report_path = "My Documents\\An\VS Learning\\Practice\\New-Test files\\Copy of Static 240630.xlsx"
+#     test_output_directory = "My Documents\\An\\VS Learning\\Practice\\New-Test files"
+#     test_global_staff_list = "My Documents\\An\\VS Learning\\Practice\\New-Test files\\Copy of Staff list - May.xlsx"
 #     process_ms(test_op_plan_path, test_static_report_path, test_global_staff_list, test_output_directory)
 """
