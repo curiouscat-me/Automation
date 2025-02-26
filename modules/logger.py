@@ -34,4 +34,4 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 
 # Setup logger
-data_logger = setup_logger('data_process', '\\\\Svrau055csm00.oceania.corp.anz.com\\TEPSS BTMC\\SHARE\\App Support\\Support\\3. Teams\\Technology Business Operations\\4. Practice Management\\Automation Tool\\Security\\Output files\\Security log.log', level=logging.DEBUG)
+data_logger = setup_logger('data_process', '4. Practice Management\\Automation Tool\\Security\\Output files\\Security log.log', level=logging.DEBUG)
